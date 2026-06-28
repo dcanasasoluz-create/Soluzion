@@ -3086,17 +3086,15 @@ function renderConsolidado() {
     const totalCat = prods.reduce((a,p) => a + p.totalQty, 0);
     const totalCatStr = totalCat % 1 === 0 ? totalCat : totalCat.toFixed(1);
 
-    // Subtotal costo de la categoría
-    const costoCat = prods.reduce((a,p) => a + (costosIngresados[p.prodId]||0) * p.totalQty, 0);
-    const costoCatHtml = modoCosto && costoCat > 0
-      ? `<span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);margin-left:8px;">· S/${costoCat.toFixed(2)}</span>`
-      : '';
+    // Subtotal costo de la categoría — calcular desde costosIngresados
+    const costoCat = prods.reduce((a,p) => a + (parseFloat(costosIngresados[p.prodId])||0) * p.totalQty, 0);
+    const costoCatStr = costoCat > 0 ? ` · S/${costoCat.toFixed(2)}` : '';
 
     // Encabezado de categoría
     html += `<div class="consol-cat-header" style="background:${color};">
       <span class="consol-cat-header-lbl">${cat}</span>
       <span style="flex:1;"></span>
-      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);">${totalCatStr} paq${costoCatHtml ? ' · S/' + costoCat.toFixed(2) : ''}</span>
+      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);">${totalCatStr} paq${modoCosto ? costoCatStr : ''}</span>
     </div>`;
 
     prods.forEach(p => {
@@ -4014,6 +4012,12 @@ function toggleModoCosto() {
     setTimeout(() => {
       document.getElementById('consol-costo-footer').style.display = 'flex';
       actualizarTotalCosto();
+      // Actualizar subtotales de fila con precios ya guardados
+      consolData.forEach(p => {
+        const sub = document.getElementById('costo-sub-' + p.prodId);
+        const costo = parseFloat(costosIngresados[p.prodId])||0;
+        if (sub) sub.textContent = 'S/ ' + (costo * p.totalQty).toFixed(2);
+      });
     }, 100);
   } else {
     document.getElementById('consol-costo-footer').style.display = 'none';
