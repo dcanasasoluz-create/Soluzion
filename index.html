@@ -490,6 +490,42 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 .consol-costo-footer-val { font-size: 20px; font-weight: 700; color: #bf360c; }
 .consol-costo-margen { font-size: 12px; color: #2e7d32; font-weight: 600; margin-top: 2px; }
 
+
+/* ── Botón imprimir nota ── */
+.btn-print { height:36px; padding:0 12px; border:1.5px solid #1a73e8; border-radius:8px; background:#fff; color:#1a73e8; font-size:12px; font-weight:600; cursor:pointer; flex-shrink:0; display:inline-flex; align-items:center; gap:4px; }
+.btn-print:active { background:#f0f7ff; }
+
+
+/* ── Vista previa ticket ── */
+.ticket-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.6); z-index: 90; align-items: center; justify-content: center; padding: 20px; }
+.ticket-overlay.show { display: flex; }
+.ticket-modal { background: #f0f0f0; border-radius: 12px; width: 100%; max-width: 360px; max-height: 85vh; overflow: hidden; display: flex; flex-direction: column; }
+.ticket-modal-header { padding: 12px 16px; background: #1a73e8; color: #fff; display: flex; justify-content: space-between; align-items: center; }
+.ticket-modal-title { font-size: 15px; font-weight: 700; }
+.ticket-modal-close { border: none; background: none; color: #fff; font-size: 22px; cursor: pointer; }
+.ticket-modal-body { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; align-items: center; }
+/* Simulación papel térmico 58mm */
+.ticket-paper { background: #fff; width: 215px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 12px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; }
+.ticket-paper::before { content: ''; position: absolute; top: -8px; left: 0; right: 0; height: 8px; background: repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 4px, #fff 4px, #fff 8px); }
+.ticket-paper::after { content: ''; position: absolute; bottom: -8px; left: 0; right: 0; height: 8px; background: repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 4px, #fff 4px, #fff 8px); }
+.tk-center { text-align: center; }
+.tk-left { text-align: left; }
+.tk-right { text-align: right; }
+.tk-bold { font-weight: 700; }
+.tk-big { font-size: 15px; font-weight: 900; }
+.tk-med { font-size: 13px; font-weight: 700; }
+.tk-sep { border: none; border-top: 1px dashed #999; margin: 4px 0; }
+.tk-sep-solid { border: none; border-top: 1px solid #333; margin: 4px 0; }
+.tk-prod-row { display: flex; justify-content: space-between; font-size: 10px; padding: 1px 0; }
+.tk-prod-name { flex: 1; padding-right: 4px; word-break: break-word; }
+.tk-prod-right { text-align: right; flex-shrink: 0; }
+.tk-total-row { display: flex; justify-content: space-between; font-size: 13px; font-weight: 700; padding: 2px 0; }
+.tk-small { font-size: 9px; color: #555; }
+
+.ticket-modal-footer { padding: 12px 16px; background: #f8f8f8; border-top: 1px solid #e0e0e0; display: flex; gap: 8px; }
+.btn-ticket-print { flex: 1; height: 44px; background: #1a73e8; border: none; border-radius: 8px; color: #fff; font-size: 14px; font-weight: 600; cursor: pointer; }
+.btn-ticket-close { height: 44px; padding: 0 16px; background: #f0f0f0; border: none; border-radius: 8px; color: #666; font-size: 14px; font-weight: 600; cursor: pointer; }
+
 /* ── ESTADO SELECTOR MODAL ── */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.45); z-index: 80; align-items: flex-end; justify-content: center; }
 .modal-overlay.show { display: flex; }
@@ -766,6 +802,25 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
       <div class="spinner" id="spinner-saldoant" style="display:none"></div>
     </button>
     <button class="modal-cancel" onclick="cerrarModalSaldoAnt()">Cancelar</button>
+  </div>
+</div>
+
+<!-- ══ MODAL VISTA PREVIA TICKET ══ -->
+<div class="ticket-overlay" id="ticket-overlay" onclick="cerrarTicketPreview(event)">
+  <div class="ticket-modal">
+    <div class="ticket-modal-header">
+      <span class="ticket-modal-title">🖨️ Vista previa del ticket</span>
+      <button class="ticket-modal-close" onclick="cerrarTicketPreview()">✕</button>
+    </div>
+    <div class="ticket-modal-body">
+      <div class="ticket-paper" id="ticket-paper">
+        <!-- Se rellena dinámicamente -->
+      </div>
+    </div>
+    <div class="ticket-modal-footer">
+      <button class="btn-ticket-close" onclick="cerrarTicketPreview()">Cerrar</button>
+      <button class="btn-ticket-print" onclick="enviarAImpresora()">🖨️ Imprimir</button>
+    </div>
   </div>
 </div>
 
@@ -2043,6 +2098,7 @@ function renderHistorial() {
         ${p.ultimaAccion ? p.ultimaAccion.split(' | ').map(a => `<div style="font-size:11px;color:#aaa;padding:1px 16px;">🔄 ${a}</div>`).join('') : ''}
         <div class="detail-actions">
           ${p.estado === 'PENDIENTE' ? `<button class="det-btn primary" onclick="abrirEdicion('${p.id}', 'historial')">✏️ Editar</button>` : ''}
+          <button class="det-btn" onclick="imprimirNotaPedido('${p.id}')">🖨️ Imprimir</button>
           <button class="det-btn" onclick="abrirModalEstado('${p.id}')">🔄 Estado</button>
           <button class="det-btn danger" onclick="confirmarEliminar('${p.id}')">🗑 Eliminar</button>
         </div>
@@ -2339,6 +2395,7 @@ function renderDespacho() {
             </button>` : ''}
           ${(p.estado === 'CANCELADO' || p.estado === 'ANULADO') ? `
             <button class="desp-btn-entregar done" disabled>✓ ${p.estado}</button>` : ''}
+          <button class="btn-print" onclick="imprimirNotaPedido('${p.id}')">🖨️ Imprimir</button>
           ${p.estado !== 'ANULADO' ? `
             <button onclick="anularPedidoDespacho('${p.id}')"
               style="height:36px;padding:0 12px;border:1.5px solid #ffcdd2;border-radius:8px;background:#fff;color:#c62828;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">
@@ -3154,6 +3211,12 @@ function renderConsolidado() {
 
   html += '</div>';
   container.innerHTML = html;
+
+  // Si modo costo activo, mostrar footer y calcular total
+  if (modoCosto) {
+    document.getElementById('consol-costo-footer').style.display = 'flex';
+    actualizarTotalCosto();
+  }
 }
 
 function toggleConsolRow(prodId) {
@@ -4015,13 +4078,12 @@ function toggleModoCosto() {
     setTimeout(() => {
       document.getElementById('consol-costo-footer').style.display = 'flex';
       actualizarTotalCosto();
-      // Actualizar subtotales de fila con precios ya guardados
       consolData.forEach(p => {
         const sub = document.getElementById('costo-sub-' + p.prodId);
-        const costo = parseFloat(costosIngresados[p.prodId])||0;
+        const costo = parseFloat(String(costosIngresados[p.prodId] || 0).replace(',','.')) || 0;
         if (sub) sub.textContent = 'S/ ' + (costo * p.totalQty).toFixed(2);
       });
-    }, 100);
+    }, 50);
   } else {
     document.getElementById('consol-costo-footer').style.display = 'none';
   }
@@ -4073,6 +4135,183 @@ function setCosto(prodId, val) {
     if (sub) sub.textContent = 'S/ '+(num*prod.totalQty).toFixed(2);
   }
   actualizarTotalCosto();
+}
+
+
+// ══════════════════════════════════════════════════════
+// IMPRESIÓN NOTA DE PEDIDO — RawBT / ESC/POS
+// ══════════════════════════════════════════════════════
+const EMPRESA = {
+  nombre:    'SOLUZION',
+  subtitulo: 'Distribución y servicios',
+  direccion: 'Terminal Terrestre R-6',
+  ruc:       '20606703881'
+};
+
+let ticketDataActual = null; // guarda datos para enviar a impresora
+
+async function imprimirNotaPedido(idPedido) {
+  overlay(true, 'Preparando nota...');
+  try {
+    // Buscar pedido
+    let ped = despachoPedidos.find(p => p.id === idPedido)
+           || historialData.find(p => p.id === idPedido);
+    if (!ped) {
+      const pedData = await sheetGet('PEDIDOS!A2:K2000');
+      const row = (pedData.values||[]).find(r => r[0] === idPedido);
+      if (row) ped = {
+        id: row[0], fecha: row[1], clienteId: row[2],
+        total: parseNum(row[3]), estado: row[4],
+        montoRecibido: parseNum(row[5]), metodoPago: row[6],
+        saldo: parseNum(row[7]), viaje: row[8]
+      };
+    }
+    if (!ped) { toast('Pedido no encontrado'); overlay(false); return; }
+
+    // Detalles
+    let dets = detallesCache[idPedido] || cliDetCache[idPedido];
+    if (!dets || !dets.length) {
+      const detData = await sheetGet('DETALLE_PEDIDO!A2:F2000');
+      dets = (detData.values||[])
+        .filter(r => r[1] === idPedido)
+        .map(r => ({ prodId: r[2]||'', qty: parseNum(r[3]), subtotal: parseNum(r[4]), precio: parseNum(r[5]) }));
+    }
+
+    const cli = clientes.find(c => c.id === ped.clienteId);
+    const nombreCli = cli ? cli.nombre : ped.clienteId;
+    const fechaCorta = ped.fecha.split(' ')[0];
+    const horaCorta = (ped.fecha.split(' ')[1]||'').substring(0,5);
+
+    // Guardar para envío
+    ticketDataActual = { ped, dets, nombreCli, fechaCorta, horaCorta };
+
+    // ── Render vista previa HTML ──
+    const paper = document.getElementById('ticket-paper');
+    const SEP_D = '<hr class="tk-sep">';
+    const SEP_S = '<hr class="tk-sep-solid">';
+
+    let rows = '';
+    dets.forEach(d => {
+      const prod = productos.find(p => p.id === d.prodId);
+      const nombre = prod ? prod.nombre : d.prodId;
+      const qtyStr = d.qty % 1 === 0 ? d.qty : d.qty.toFixed(1);
+      rows += `<div class="tk-prod-row">
+        <span class="tk-prod-name">${nombre}</span>
+        <span class="tk-prod-right">${qtyStr}x S/${d.precio.toFixed(2)}<br><b>S/${d.subtotal.toFixed(2)}</b></span>
+      </div>`;
+    });
+
+    let cobroHtml = '';
+    if (ped.montoRecibido > 0) {
+      cobroHtml += `<div class="tk-total-row" style="font-size:11px;font-weight:500;">
+        <span>Cobrado${ped.metodoPago ? ' ('+ped.metodoPago+')' : ''}</span>
+        <span>S/ ${ped.montoRecibido.toFixed(2)}</span>
+      </div>`;
+    }
+    if (ped.saldo > 0) {
+      cobroHtml += `<div class="tk-total-row" style="font-size:11px;">
+        <span>⚠️ Saldo</span><span>S/ ${ped.saldo.toFixed(2)}</span>
+      </div>`;
+    }
+
+    paper.innerHTML = `
+      <div class="tk-center tk-big">${EMPRESA.nombre}</div>
+      <div class="tk-center" style="font-size:10px;">${EMPRESA.subtitulo}</div>
+      <div class="tk-center tk-small">${EMPRESA.direccion}</div>
+      <div class="tk-center tk-small">RUC: ${EMPRESA.ruc}</div>
+      ${SEP_S}
+      <div class="tk-center tk-bold" style="font-size:12px;margin:2px 0;">NOTA DE PEDIDO</div>
+      ${SEP_D}
+      <div class="tk-small">Cliente : <b>${nombreCli}</b></div>
+      <div class="tk-small">Fecha   : ${fechaCorta} ${horaCorta}</div>
+      <div class="tk-small">Viaje   : ${ped.viaje||'1'} &nbsp; Estado: ${ped.estado}</div>
+      ${SEP_S}
+      <div class="tk-small tk-bold" style="display:flex;justify-content:space-between;">
+        <span>PRODUCTO</span><span>CANT  TOTAL</span>
+      </div>
+      ${SEP_D}
+      ${rows}
+      ${SEP_S}
+      <div class="tk-total-row">
+        <span>TOTAL</span><span>S/ ${ped.total.toFixed(2)}</span>
+      </div>
+      ${cobroHtml}
+      ${SEP_D}
+      <div class="tk-center tk-small" style="margin-top:4px;">Gracias por su preferencia</div>
+      <div style="height:12px;"></div>
+    `;
+
+    document.getElementById('ticket-overlay').classList.add('show');
+  } catch(e) {
+    toast('Error al preparar nota.'); console.error(e);
+  }
+  overlay(false);
+}
+
+function cerrarTicketPreview(e) {
+  if (!e || e.target === document.getElementById('ticket-overlay')) {
+    document.getElementById('ticket-overlay').classList.remove('show');
+    ticketDataActual = null;
+  }
+}
+
+function enviarAImpresora() {
+  if (!ticketDataActual) return;
+  const { ped, dets, nombreCli, fechaCorta, horaCorta } = ticketDataActual;
+
+  // ESC/POS para RawBT
+  const ESC = String.fromCharCode(27);
+  const GS  = String.fromCharCode(29);
+  const LF  = '\n';
+  const INIT        = ESC + '@';
+  const CENTER      = ESC + 'a' + String.fromCharCode(1);
+  const LEFT        = ESC + 'a' + String.fromCharCode(0);
+  const BOLD_ON     = ESC + 'E' + String.fromCharCode(1);
+  const BOLD_OFF    = ESC + 'E' + String.fromCharCode(0);
+  const SIZE_BIG    = GS  + '!' + String.fromCharCode(17);
+  const SIZE_MED    = GS  + '!' + String.fromCharCode(16);
+  const SIZE_NORMAL = GS  + '!' + String.fromCharCode(0);
+  const CUT         = GS  + 'V' + String.fromCharCode(66) + String.fromCharCode(0);
+  const SEP = '--------------------------------';
+
+  function pad(str, len) { return str.length >= len ? str.substring(0,len) : str + ' '.repeat(len - str.length); }
+
+  let t = INIT + CENTER;
+  t += SIZE_BIG + BOLD_ON + EMPRESA.nombre + LF + BOLD_OFF;
+  t += SIZE_NORMAL + EMPRESA.subtitulo + LF;
+  t += EMPRESA.direccion + LF;
+  t += 'RUC: ' + EMPRESA.ruc + LF;
+  t += SEP + LF;
+  t += LEFT + BOLD_ON + 'NOTA DE PEDIDO' + BOLD_OFF + LF;
+  t += 'Cliente : ' + nombreCli + LF;
+  t += 'Fecha   : ' + fechaCorta + ' ' + horaCorta + LF;
+  t += 'Viaje   : ' + (ped.viaje||'1') + '  Estado: ' + ped.estado + LF;
+  t += SEP + LF;
+  t += BOLD_ON + pad('PRODUCTO',18) + pad('CANT',5) + 'TOTAL' + LF + BOLD_OFF;
+  t += SEP + LF;
+  dets.forEach(d => {
+    const prod = productos.find(p => p.id === d.prodId);
+    const nom = prod ? prod.nombre : d.prodId;
+    const qtyStr = (d.qty % 1 === 0 ? String(d.qty) : d.qty.toFixed(1)) + 'x';
+    const subStr = 'S/' + d.subtotal.toFixed(2);
+    t += pad(nom, 32) + LF;
+    t += '  ' + pad('S/'+d.precio.toFixed(2)+' x '+qtyStr, 20) + subStr.padStart(10) + LF;
+  });
+  t += SEP + LF;
+  t += CENTER + SIZE_MED + BOLD_ON + 'TOTAL: S/' + ped.total.toFixed(2) + LF + BOLD_OFF + SIZE_NORMAL + LEFT;
+  if (ped.montoRecibido > 0) {
+    t += 'Cobrado : S/' + ped.montoRecibido.toFixed(2) + (ped.metodoPago ? ' ('+ped.metodoPago+')' : '') + LF;
+  }
+  if (ped.saldo > 0) {
+    t += BOLD_ON + 'Saldo   : S/' + ped.saldo.toFixed(2) + BOLD_OFF + LF;
+  }
+  t += SEP + LF;
+  t += CENTER + 'Gracias por su preferencia' + LF + LF + LF + LF;
+  t += CUT;
+
+  const encoded = encodeURIComponent(t);
+  window.location.href = 'rawbt:' + encoded;
+  setTimeout(() => cerrarTicketPreview(), 500);
 }
 
 // ── INIT ─────────────────────────────────────────────────
