@@ -3087,7 +3087,10 @@ function renderConsolidado() {
     const totalCatStr = totalCat % 1 === 0 ? totalCat : totalCat.toFixed(1);
 
     // Subtotal costo de la categoría — calcular desde costosIngresados
-    const costoCat = prods.reduce((a,p) => a + (parseFloat(costosIngresados[p.prodId])||0) * p.totalQty, 0);
+    const costoCat = prods.reduce((a,p) => {
+      const c = parseFloat(String(costosIngresados[p.prodId] || 0).replace(',','.')) || 0;
+      return a + c * p.totalQty;
+    }, 0);
     const costoCatStr = costoCat > 0 ? ` · S/${costoCat.toFixed(2)}` : '';
 
     // Encabezado de categoría
@@ -3107,7 +3110,7 @@ function renderConsolidado() {
           <span class="consol-cli-qty">${c.qty % 1 === 0 ? c.qty : c.qty.toFixed(1)}</span>
         </div>`).join('');
 
-      const costoActual = costosIngresados[p.prodId]||0;
+      const costoActual = parseFloat(String(costosIngresados[p.prodId] || 0).replace(',','.')) || 0;
       const costoSubtotal = costoActual * p.totalQty;
       const costoRowHtml = modoCosto ? `
         <div class="consol-row-costo">
