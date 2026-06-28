@@ -3086,11 +3086,15 @@ function renderConsolidado() {
     const totalCat = prods.reduce((a,p) => a + p.totalQty, 0);
     const totalCatStr = totalCat % 1 === 0 ? totalCat : totalCat.toFixed(1);
 
+    // Subtotal costo de la categoría — calcular desde costosIngresados
+    const costoCat = prods.reduce((a,p) => a + (parseFloat(costosIngresados[p.prodId])||0) * p.totalQty, 0);
+    const costoCatStr = costoCat > 0 ? ` · S/${costoCat.toFixed(2)}` : '';
+
     // Encabezado de categoría
     html += `<div class="consol-cat-header" style="background:${color};">
       <span class="consol-cat-header-lbl">${cat}</span>
       <span style="flex:1;"></span>
-      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);">${totalCatStr} paq</span>
+      <span style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.9);">${totalCatStr} paq${modoCosto ? costoCatStr : ''}</span>
     </div>`;
 
     prods.forEach(p => {
@@ -3134,6 +3138,15 @@ function renderConsolidado() {
         </div>
       </div>`;
     });
+
+    // Pie de categoría con subtotal costo (solo en modo costo)
+    if (modoCosto) {
+      html += `<div class="consol-cat-subtotal" id="costo-cat-${cat}"
+        style="display:flex;justify-content:space-between;padding:6px 12px;background:${color}18;border-bottom:1px solid ${color}30;">
+        <span style="font-size:12px;color:${color};font-weight:600;">Subtotal ${cat}</span>
+        <span style="font-size:12px;color:${color};font-weight:700;" id="costo-cat-val-${cat}">S/ ${costoCat.toFixed(2)}</span>
+      </div>`;
+    }
   });
 
   html += '</div>';
@@ -3999,6 +4012,12 @@ function toggleModoCosto() {
     setTimeout(() => {
       document.getElementById('consol-costo-footer').style.display = 'flex';
       actualizarTotalCosto();
+      // Actualizar subtotales de fila con precios ya guardados
+      consolData.forEach(p => {
+        const sub = document.getElementById('costo-sub-' + p.prodId);
+        const costo = parseFloat(costosIngresados[p.prodId])||0;
+        if (sub) sub.textContent = 'S/ ' + (costo * p.totalQty).toFixed(2);
+      });
     }, 100);
   } else {
     document.getElementById('consol-costo-footer').style.display = 'none';
@@ -4008,13 +4027,27 @@ function toggleModoCosto() {
 function actualizarTotalCosto() {
   let totalCosto = 0;
   let totalVenta = 0;
+
+  // Recalcular subtotales por categoría
+  const CAT_ORDER = ['COCACOLA','ESCOCESA','ISM','BACKUS','OTROS'];
+  const costoPorCat = {};
+
   consolData.forEach(p => {
     const costo = parseFloat(costosIngresados[p.prodId]||0);
-    totalCosto += costo * p.totalQty;
-    // Venta aproximada: precio retail × qty
+    const subtotal = costo * p.totalQty;
+    totalCosto += subtotal;
+    const cat = CAT_ORDER.includes(p.cat) ? p.cat : 'OTROS';
+    costoPorCat[cat] = (costoPorCat[cat]||0) + subtotal;
     const prod = productos.find(x=>x.id===p.prodId);
     if (prod) totalVenta += prod.retail * p.totalQty;
   });
+
+  // Actualizar pies de categoría
+  CAT_ORDER.forEach(cat => {
+    const el = document.getElementById('costo-cat-val-' + cat);
+    if (el) el.textContent = 'S/ ' + (costoPorCat[cat]||0).toFixed(2);
+  });
+
   document.getElementById('consol-costo-total').textContent = 'S/ '+totalCosto.toFixed(2);
   if (totalCosto > 0 && totalVenta > 0) {
     const margen = totalVenta - totalCosto;
