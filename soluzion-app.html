@@ -3492,7 +3492,15 @@ async function guardarEdicion() {
       if (rows[i][0] === editPedidoId) { filaPed = i+1; break; }
     }
     if (filaPed < 0) throw new Error('Pedido no encontrado');
-    await sheetUpdate(`PEDIDOS!D${filaPed}`, [[nuevoTotal]]);
+    const pedRowActual = rows.find(r => r[0] === editPedidoId);
+    const montoRecibidoActual = pedRowActual ? parseNum(pedRowActual[5]) : 0;
+    const metodoActual = pedRowActual ? (pedRowActual[6]||'') : '';
+    const nuevoSaldo = Math.max(0, nuevoTotal - montoRecibidoActual);
+    const estadoActual = pedRowActual ? pedRowActual[4] : 'PENDIENTE';
+    const nuevoEstado = nuevoSaldo <= 0 && montoRecibidoActual > 0 ? 'CANCELADO'
+      : nuevoSaldo > 0 && montoRecibidoActual > 0 ? 'DEBE'
+      : estadoActual;
+    await sheetUpdate(`PEDIDOS!D${filaPed}:H${filaPed}`, [[nuevoTotal, nuevoEstado, montoRecibidoActual, metodoActual, nuevoSaldo]]);
     await appendLog(filaPed, 'Editado por ' + usuarioTag());
 
     // 3. Borrar detalles viejos marcando qty=0 no es posible sin delete,
@@ -3809,8 +3817,16 @@ async function confirmarCambioPrecio() {
       if (pedRows[i][0] === editPedidoId) { filaPed = i+1; break; }
     }
     if (filaPed > 0) {
-      await sheetUpdate(`PEDIDOS!D${filaPed}`, [[nuevoTotal]]);
-      await appendLog(filaPed, `Precio ${precioProdId} cambiado a S/${nuevoPrecio.toFixed(2)} por Admin`);
+      const pedRowP = pedRows.find(r => r[0] === editPedidoId);
+      const montoRecP = pedRowP ? parseNum(pedRowP[5]) : 0;
+      const metodoP = pedRowP ? (pedRowP[6]||'') : '';
+      const nuevoSaldoP = Math.max(0, nuevoTotal - montoRecP);
+      const estadoP = pedRowP ? pedRowP[4] : 'PENDIENTE';
+      const nuevoEstadoP = nuevoSaldoP <= 0 && montoRecP > 0 ? 'CANCELADO'
+        : nuevoSaldoP > 0 && montoRecP > 0 ? 'DEBE'
+        : estadoP;
+      await sheetUpdate(`PEDIDOS!D${filaPed}:H${filaPed}`, [[nuevoTotal, nuevoEstadoP, montoRecP, metodoP, nuevoSaldoP]]);
+      await appendLog(filaPed, `Precio cambiado — total S/${nuevoTotal.toFixed(2)}, saldo S/${nuevoSaldoP.toFixed(2)} por Admin`);
     }
 
     // Actualizar precio solo en memoria para este pedido (no en productos global)
