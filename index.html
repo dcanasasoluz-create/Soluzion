@@ -505,7 +505,7 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
 .ticket-modal-close { border: none; background: none; color: #fff; font-size: 22px; cursor: pointer; }
 .ticket-modal-body { overflow-y: auto; padding: 16px; display: flex; flex-direction: column; align-items: center; }
 /* Simulación papel térmico 58mm */
-.ticket-paper { background: #fff; width: 215px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.4; padding: 12px 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; }
+.ticket-paper { background: #fff; width: 215px; font-family: 'Courier New', monospace; font-size: 11px; line-height: 1.5; padding: 14px 10px; box-shadow: 0 2px 8px rgba(0,0,0,0.15); position: relative; }
 .ticket-paper::before { content: ''; position: absolute; top: -8px; left: 0; right: 0; height: 8px; background: repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 4px, #fff 4px, #fff 8px); }
 .ticket-paper::after { content: ''; position: absolute; bottom: -8px; left: 0; right: 0; height: 8px; background: repeating-linear-gradient(90deg, #f0f0f0 0px, #f0f0f0 4px, #fff 4px, #fff 8px); }
 .tk-center { text-align: center; }
@@ -2377,30 +2377,30 @@ function renderDespacho() {
         ${pagoInfo}
         ${saldoRow}
         <div style="padding: 8px 14px 12px; display:flex; gap:8px;">
+          <!-- Botón principal acción -->
           ${p.estado === 'PENDIENTE' ? `
-            <button class="desp-btn-entregar" onclick="abrirModalEntrega('${p.id}', 'entregar')" style="background:#f57c00;">
+            <button class="desp-btn-entregar" onclick="abrirModalEntrega('${p.id}', 'entregar')" style="background:#f57c00;flex:1;">
               📦 Confirmar entrega
-            </button>
-            <button onclick="abrirEdicion('${p.id}', 'despacho')"
-              style="height:36px;padding:0 12px;border:1.5px solid #1a73e8;border-radius:8px;background:#fff;color:#1a73e8;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">
-              ✏️ Editar
             </button>` : ''}
           ${p.estado === 'ENTREGADO' ? `
-            <button class="desp-btn-entregar" onclick="abrirModalEntrega('${p.id}', 'cobrar')">
+            <button class="desp-btn-entregar" onclick="abrirModalEntrega('${p.id}', 'cobrar')" style="flex:1;">
               💰 Registrar cobro
             </button>` : ''}
           ${p.estado === 'DEBE' ? `
-            <button class="desp-btn-entregar" onclick="abrirModalEntrega('${p.id}', 'cobrar')" style="background:#c62828;">
-              💰 Cobrar saldo S/${p.saldo.toFixed(2)}
+            <button class="desp-btn-entregar" onclick="abrirModalEntrega('${p.id}', 'cobrar')" style="background:#c62828;flex:1;">
+              💰 Cobrar S/${p.saldo.toFixed(2)}
             </button>` : ''}
           ${(p.estado === 'CANCELADO' || p.estado === 'ANULADO') ? `
-            <button class="desp-btn-entregar done" disabled>✓ ${p.estado}</button>` : ''}
-          <button class="btn-print" onclick="imprimirNotaPedido('${p.id}')">🖨️ Imprimir</button>
+            <button class="desp-btn-entregar done" disabled style="flex:1;">✓ ${p.estado}</button>` : ''}
+          <!-- Botones iconos -->
+          ${p.estado === 'PENDIENTE' ? `
+            <button onclick="abrirEdicion('${p.id}', 'despacho')" title="Editar"
+              style="width:36px;height:36px;border:1.5px solid #1a73e8;border-radius:8px;background:#fff;color:#1a73e8;font-size:16px;cursor:pointer;flex-shrink:0;">✏️</button>` : ''}
+          <button onclick="imprimirNotaPedido('${p.id}')" title="Imprimir"
+            style="width:36px;height:36px;border:1.5px solid #1a73e8;border-radius:8px;background:#fff;color:#1a73e8;font-size:16px;cursor:pointer;flex-shrink:0;">🖨️</button>
           ${p.estado !== 'ANULADO' ? `
-            <button onclick="anularPedidoDespacho('${p.id}')"
-              style="height:36px;padding:0 12px;border:1.5px solid #ffcdd2;border-radius:8px;background:#fff;color:#c62828;font-size:12px;font-weight:600;cursor:pointer;flex-shrink:0;">
-              🗑 Anular
-            </button>` : ''}
+            <button onclick="anularPedidoDespacho('${p.id}')" title="Anular"
+              style="width:36px;height:36px;border:1.5px solid #ffcdd2;border-radius:8px;background:#fff;color:#c62828;font-size:16px;cursor:pointer;flex-shrink:0;">🗑</button>` : ''}
         </div>
       </div>
     </div>`;
@@ -4309,9 +4309,28 @@ function enviarAImpresora() {
   t += CENTER + 'Gracias por su preferencia' + LF + LF + LF + LF;
   t += CUT;
 
-  const encoded = encodeURIComponent(t);
-  window.location.href = 'rawbt:' + encoded;
-  setTimeout(() => cerrarTicketPreview(), 500);
+  // Agregar márgenes al inicio y espaciado
+  const ticketConMargen = t;
+
+  // Intentar primero con rawbt: scheme (texto plano ESC/POS)
+  // Si RawBT está configurado como "Text/Font" funcionará correctamente
+  const bytes = [];
+  for (let i = 0; i < ticketConMargen.length; i++) {
+    bytes.push(ticketConMargen.charCodeAt(i) & 0xff);
+  }
+
+  // Usar URL scheme de RawBT con tipo de contenido explícito
+  const b64 = btoa(ticketConMargen);
+  const rawbtUrl = 'rawbt://base64/' + encodeURIComponent(b64);
+
+  // Intentar abrir RawBT
+  const link = document.createElement('a');
+  link.href = rawbtUrl;
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+
+  setTimeout(() => cerrarTicketPreview(), 800);
 }
 
 // ── INIT ─────────────────────────────────────────────────
