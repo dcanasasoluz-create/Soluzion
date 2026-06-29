@@ -4451,7 +4451,11 @@ function getPeriodoFechas() {
   if (ventasPeriodoActual === 'hoy') {
     desde = new Date(); desde.setHours(0,0,0,0);
   } else if (ventasPeriodoActual === 'semana') {
-    desde = new Date(); desde.setDate(desde.getDate() - 6); desde.setHours(0,0,0,0);
+    desde = new Date();
+    const diaSemana = desde.getDay(); // 0=dom, 1=lun...
+    const diasDesideLunes = diaSemana === 0 ? 6 : diaSemana - 1;
+    desde.setDate(desde.getDate() - diasDesideLunes);
+    desde.setHours(0,0,0,0);
   } else if (ventasPeriodoActual === 'mes') {
     desde = new Date(); desde.setDate(1); desde.setHours(0,0,0,0);
   } else {
@@ -4515,6 +4519,16 @@ function renderVentasContent() {
 }
 
 // ── Por período ──────────────────────────────────────
+function calcularCostoTotal(detalles) {
+  // Usa los costos ingresados en el consolidado (localStorage)
+  let totalCosto = 0;
+  detalles.forEach(d => {
+    const costo = parseFloat(String(costosIngresados[d.prodId]||0).replace(',','.')) || 0;
+    totalCosto += costo * d.qty;
+  });
+  return totalCosto;
+}
+
 function renderVentasPeriodo(cont) {
   const peds = ventasData.pedidos;
   const totalFact = peds.reduce((a,p) => a+p.total, 0);
@@ -4523,6 +4537,12 @@ function renderVentasPeriodo(cont) {
   const totalPeds = peds.length;
   const entregados = peds.filter(p=>['ENTREGADO','CANCELADO','DEBE'].includes(p.estado)).length;
   const ticketProm = totalPeds > 0 ? totalFact/totalPeds : 0;
+
+  // Costo y margen desde costosIngresados
+  const totalCosto = calcularCostoTotal(ventasData.detalles);
+  const margenMonto = totalFact - totalCosto;
+  const margenPct = totalFact > 0 ? (margenMonto/totalFact*100) : 0;
+  const tieneCostos = totalCosto > 0;
 
   // Desglose método
   const metodos = {};
@@ -4535,6 +4555,26 @@ function renderVentasPeriodo(cont) {
   const metodosHtml = Object.entries(metodos).map(([m,v]) =>
     `<div class="comp-row"><span class="comp-lbl">${m}</span><span class="comp-val">S/ ${v.toFixed(2)}</span></div>`
   ).join('') || '<div class="comp-row"><span class="comp-lbl" style="color:#aaa;">Sin cobros registrados</span></div>';
+
+  const costoHtml = tieneCostos ? `
+    <div class="ventas-list" style="margin-top:0;">
+      <div class="ventas-list-title">Costo de compra y margen</div>
+      <div class="comp-row">
+        <span class="comp-lbl">🛒 Costo total compra</span>
+        <span class="comp-val" style="color:#e65100;">S/ ${totalCosto.toFixed(2)}</span>
+      </div>
+      <div class="comp-row">
+        <span class="comp-lbl">📈 Margen bruto</span>
+        <span class="comp-val" style="color:#2e7d32;">S/ ${margenMonto.toFixed(2)}</span>
+      </div>
+      <div class="comp-row">
+        <span class="comp-lbl">% Margen</span>
+        <span class="comp-val" style="color:#2e7d32;font-size:15px;">${margenPct.toFixed(1)}%</span>
+      </div>
+    </div>` : `
+    <div style="background:#fff3e0;margin:0 8px 8px;border-radius:10px;padding:10px 14px;font-size:12px;color:#e65100;">
+      💡 Ingresa los precios de costo en <b>Reportes → Consolidado</b> para ver el margen aquí.
+    </div>`;
 
   cont.innerHTML = `
     <div class="ventas-metrics">
@@ -4566,7 +4606,8 @@ function renderVentasPeriodo(cont) {
     <div class="ventas-list">
       <div class="ventas-list-title">Desglose por método de cobro</div>
       ${metodosHtml}
-    </div>`;
+    </div>
+    ${costoHtml}`;
 }
 
 // ── Ranking clientes ──────────────────────────────────
