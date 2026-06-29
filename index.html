@@ -1291,6 +1291,13 @@ input:checked + .toggle-slider:before { transform: translateX(20px); }
       </div>
       <div class="consol-costo-footer-val" id="consol-costo-total">S/ 0.00</div>
     </div>
+    <div id="consol-guardar-costo-wrap" style="display:none;padding:0 8px 8px;">
+      <button onclick="guardarCostoDia()" id="btn-guardar-costo"
+        style="width:100%;height:44px;background:#1b5e20;border:none;border-radius:10px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;">
+        💾 Guardar costo del día
+      </button>
+      <div id="costo-dia-guardado" style="display:none;text-align:center;font-size:12px;color:#2e7d32;margin-top:6px;font-weight:600;"></div>
+    </div>
 
   </div>
 
@@ -3299,7 +3306,9 @@ function renderConsolidado() {
   // Si modo costo activo, mostrar footer y calcular total
   if (modoCosto) {
     document.getElementById('consol-costo-footer').style.display = 'flex';
+    document.getElementById('consol-guardar-costo-wrap').style.display = 'block';
     actualizarTotalCosto();
+    mostrarCostoGuardado();
   }
 }
 
@@ -4161,15 +4170,19 @@ function toggleModoCosto() {
   if (modoCosto) {
     setTimeout(() => {
       document.getElementById('consol-costo-footer').style.display = 'flex';
+      document.getElementById('consol-guardar-costo-wrap').style.display = 'block';
       actualizarTotalCosto();
       consolData.forEach(p => {
         const sub = document.getElementById('costo-sub-' + p.prodId);
         const costo = parseFloat(String(costosIngresados[p.prodId] || 0).replace(',','.')) || 0;
         if (sub) sub.textContent = 'S/ ' + (costo * p.totalQty).toFixed(2);
       });
+      // Mostrar si ya hay costo guardado para este día
+      mostrarCostoGuardado();
     }, 50);
   } else {
     document.getElementById('consol-costo-footer').style.display = 'none';
+    document.getElementById('consol-guardar-costo-wrap').style.display = 'none';
   }
 }
 
@@ -4538,11 +4551,38 @@ function renderVentasPeriodo(cont) {
   const entregados = peds.filter(p=>['ENTREGADO','CANCELADO','DEBE'].includes(p.estado)).length;
   const ticketProm = totalPeds > 0 ? totalFact/totalPeds : 0;
 
-  // Costo y margen desde costosIngresados
-  const totalCosto = calcularCostoTotal(ventasData.detalles);
-  const margenMonto = totalFact - totalCosto;
+  // Costo y margen: sumar costos diarios guardados del período
+  const costosDiarios = getCostosDiarios();
+  const fechas = getPeriodoFechas();
+  let totalCostoPeriodo = 0;
+  let totalMargenPeriodo = 0;
+  let diasConCosto = 0;
+
+  if (fechas) {
+    // Iterar día a día en el período
+    const cursor = new Date(fechas.desde);
+    while (cursor <= fechas.hasta) {
+      const dd = String(cursor.getDate()).padStart(2,'0');
+      const mm = String(cursor.getMonth()+1).padStart(2,'0');
+      const yyyy = cursor.getFullYear();
+      const key = `${dd}/${mm}/${yyyy}`;
+      if (costosDiarios[key]) {
+        totalCostoPeriodo += costosDiarios[key].costo;
+        totalMargenPeriodo += costosDiarios[key].margen;
+        diasConCosto++;
+      }
+      cursor.setDate(cursor.getDate()+1);
+    }
+  }
+
+  // Fallback: calcular desde costosIngresados si no hay datos diarios guardados
+  const totalCosto = totalCostoPeriodo > 0 ? totalCostoPeriodo : calcularCostoTotal(ventasData.detalles);
+  const margenMonto = totalCostoPeriodo > 0 ? totalMargenPeriodo : (totalFact - totalCosto);
   const margenPct = totalFact > 0 ? (margenMonto/totalFact*100) : 0;
   const tieneCostos = totalCosto > 0;
+  const fuenteCosto = totalCostoPeriodo > 0
+    ? `${diasConCosto} día${diasConCosto!==1?'s':''} con costo guardado`
+    : 'Estimado desde precios actuales';
 
   // Desglose método
   const metodos = {};
@@ -4571,6 +4611,7 @@ function renderVentasPeriodo(cont) {
         <span class="comp-lbl">% Margen</span>
         <span class="comp-val" style="color:#2e7d32;font-size:15px;">${margenPct.toFixed(1)}%</span>
       </div>
+      <div style="padding:6px 0;font-size:10px;color:#aaa;">📌 ${fuenteCosto}</div>
     </div>` : `
     <div style="background:#fff3e0;margin:0 8px 8px;border-radius:10px;padding:10px 14px;font-size:12px;color:#e65100;">
       💡 Ingresa los precios de costo en <b>Reportes → Consolidado</b> para ver el margen aquí.
@@ -4752,6 +4793,68 @@ async function renderVentasComparativo(cont) {
     cont.innerHTML = '<div class="empty"><div class="empty-icon">⚠️</div>Error cargando comparativo</div>';
     console.error(e);
   }
+}
+
+
+// ── Costos diarios acumulados ─────────────────────────
+// localStorage: soluzion_costos_dia → { "27/06/2026": { costo, margen, facturado }, ... }
+
+function getCostosDiarios() {
+  return JSON.parse(localStorage.getItem('soluzion_costos_dia')||'{}');
+}
+
+function guardarCostosDiarios(data) {
+  localStorage.setItem('soluzion_costos_dia', JSON.stringify(data));
+}
+
+function mostrarCostoGuardado() {
+  const fechaInput = document.getElementById('rep-fecha-consol').value;
+  if (!fechaInput) return;
+  const [y,m,d] = fechaInput.split('-');
+  const fechaKey = `${d}/${m}/${y}`;
+  const datos = getCostosDiarios();
+  const saved = datos[fechaKey];
+  const el = document.getElementById('costo-dia-guardado');
+  if (saved) {
+    el.style.display = 'block';
+    el.textContent = `✓ Guardado: Costo S/${saved.costo.toFixed(2)} · Margen S/${saved.margen.toFixed(2)} (${saved.pct.toFixed(1)}%)`;
+  } else {
+    el.style.display = 'none';
+  }
+}
+
+function guardarCostoDia() {
+  const fechaInput = document.getElementById('rep-fecha-consol').value;
+  if (!fechaInput) { toast('Selecciona una fecha en el consolidado'); return; }
+
+  const [y,m,d] = fechaInput.split('-');
+  const fechaKey = `${d}/${m}/${y}`;
+
+  // Obtener valores actuales del footer
+  const costoEl = document.getElementById('consol-costo-total').textContent;
+  const totalCosto = parseFloat(costoEl.replace('S/ ',''))||0;
+
+  // Facturado del día
+  const totalFact = consolData.reduce((a,p) => {
+    const prod = productos.find(x=>x.id===p.prodId);
+    return a + (prod ? prod.retail * p.totalQty : 0);
+  }, 0);
+
+  // Usar el facturado real de los stats
+  const facturadoEl = document.getElementById('rcs-monto')?.textContent || 'S/0';
+  const facturadoReal = parseFloat(facturadoEl.replace('S/',''))||0;
+
+  const margen = facturadoReal - totalCosto;
+  const pct = facturadoReal > 0 ? (margen/facturadoReal*100) : 0;
+
+  if (totalCosto <= 0) { toast('Ingresa los precios de costo primero'); return; }
+
+  const datos = getCostosDiarios();
+  datos[fechaKey] = { costo: totalCosto, margen, facturado: facturadoReal, pct, guardadoEl: fechaISO() };
+  guardarCostosDiarios(datos);
+
+  mostrarCostoGuardado();
+  toast(`✓ Costo del ${fechaKey} guardado`);
 }
 
 // ── INIT ─────────────────────────────────────────────────
