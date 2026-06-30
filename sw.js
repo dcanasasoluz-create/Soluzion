@@ -1,4 +1,4 @@
-const CACHE = 'soluzion-v3';
+const CACHE = 'soluzion-v4';
 const ASSETS = ['./index.html', './manifest.json'];
 
 self.addEventListener('install', e => {
@@ -21,14 +21,9 @@ self.addEventListener('fetch', e => {
       e.request.url.includes('anthropic')) {
     return;
   }
-  // Network first para el HTML — siempre trae la versión más reciente
   if (e.request.url.endsWith('.html') || e.request.url.endsWith('/')) {
-    e.respondWith(
-      fetch(e.request).catch(() => caches.match(e.request))
-    );
+    e.respondWith(fetch(e.request).catch(() => caches.match(e.request)));
     return;
   }
-  e.respondWith(
-    caches.match(e.request).then(cached => cached || fetch(e.request))
-  );
+  e.respondWith(caches.match(e.request).then(cached => cached || fetch(e.request)));
 });

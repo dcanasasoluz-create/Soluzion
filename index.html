@@ -4352,11 +4352,22 @@ function cerrarTicketPreview(e) {
   }
 }
 
+function limpiarTexto(str) {
+  return (str||'')
+    .replace(/Ó/g,'O').replace(/ó/g,'o')
+    .replace(/Á/g,'A').replace(/á/g,'a')
+    .replace(/É/g,'E').replace(/é/g,'e')
+    .replace(/Í/g,'I').replace(/í/g,'i')
+    .replace(/Ú/g,'U').replace(/ú/g,'u')
+    .replace(/Ñ/g,'N').replace(/ñ/g,'n')
+    .replace(/Ü/g,'U').replace(/ü/g,'u')
+    .replace(/[^\x00-\x7F]/g,'?');
+}
+
 function enviarAImpresora() {
   if (!ticketDataActual) return;
   const { ped, dets, nombreCli, fechaCorta, horaCorta } = ticketDataActual;
 
-  // ESC/POS para RawBT
   const ESC = String.fromCharCode(27);
   const GS  = String.fromCharCode(29);
   const LF  = '\n';
@@ -4371,33 +4382,46 @@ function enviarAImpresora() {
   const CUT         = GS  + 'V' + String.fromCharCode(66) + String.fromCharCode(0);
   const SEP = '--------------------------------';
 
-  function pad(str, len) { return str.length >= len ? str.substring(0,len) : str + ' '.repeat(len - str.length); }
+  function pad(str, len) {
+    const s = limpiarTexto(str);
+    return s.length >= len ? s.substring(0,len) : s + ' '.repeat(len - s.length);
+  }
 
   let t = INIT + CENTER;
-  t += SIZE_BIG + BOLD_ON + EMPRESA.nombre + LF + BOLD_OFF;
-  t += SIZE_NORMAL + EMPRESA.subtitulo + LF;
-  t += EMPRESA.direccion + LF;
+  t += SIZE_BIG + BOLD_ON + limpiarTexto(EMPRESA.nombre) + LF + BOLD_OFF;
+  t += SIZE_NORMAL + limpiarTexto(EMPRESA.subtitulo) + LF;
+  t += limpiarTexto(EMPRESA.direccion) + LF;
   t += 'RUC: ' + EMPRESA.ruc + LF;
   t += SEP + LF;
   t += LEFT + BOLD_ON + 'NOTA DE PEDIDO' + BOLD_OFF + LF;
-  t += 'Cliente : ' + nombreCli + LF;
+  t += 'Cliente : ' + limpiarTexto(nombreCli) + LF;
   t += 'Fecha   : ' + fechaCorta + ' ' + horaCorta + LF;
-  t += 'Viaje   : ' + (ped.viaje||'1') + '  Estado: ' + ped.estado + LF;
+  t += 'Viaje   : ' + (ped.viaje||'1') + '  Estado: ' + limpiarTexto(ped.estado) + LF;
   t += SEP + LF;
-  t += BOLD_ON + pad('PRODUCTO',18) + pad('CANT',5) + 'TOTAL' + LF + BOLD_OFF;
+  t += BOLD_ON + 'CANT PRODUCTO            SUBTOTAL' + LF + BOLD_OFF;
   t += SEP + LF;
+
   dets.forEach(d => {
     const prod = productos.find(p => p.id === d.prodId);
-    const nom = prod ? prod.nombre : d.prodId;
-    const qtyStr = (d.qty % 1 === 0 ? String(d.qty) : d.qty.toFixed(1)) + 'x';
-    const subStr = 'S/' + d.subtotal.toFixed(2);
-    t += pad(nom, 32) + LF;
-    t += '  ' + pad('S/'+d.precio.toFixed(2)+' x '+qtyStr, 20) + subStr.padStart(10) + LF;
+    const nom = limpiarTexto(prod ? prod.nombre : d.prodId);
+    const qtyStr = (d.qty % 1 === 0 ? String(parseInt(d.qty)) : d.qty.toFixed(1)) + 'x';
+    const subStr = BOLD_ON + 'S/' + d.subtotal.toFixed(2) + BOLD_OFF;
+    // Línea 1: QTY NOMBRE ... SUBTOTAL
+    const prefijo = pad(qtyStr, 4);
+    const maxNom = 20;
+    const nomTrunc = nom.length > maxNom ? nom.substring(0, maxNom) : pad(nom, maxNom);
+    t += prefijo + nomTrunc + ' ' + BOLD_ON + 'S/' + d.subtotal.toFixed(2) + BOLD_OFF + LF;
+    // Línea 2: precio unitario indentado
+    t += '    S/' + d.precio.toFixed(2) + ' c/u' + LF;
   });
+
   t += SEP + LF;
-  t += CENTER + SIZE_MED + BOLD_ON + 'TOTAL: S/' + ped.total.toFixed(2) + LF + BOLD_OFF + SIZE_NORMAL + LEFT;
+  t += CENTER + SIZE_MED + BOLD_ON + 'TOTAL: S/' + ped.total.toFixed(2) + BOLD_OFF + SIZE_NORMAL + LF;
+  t += LEFT;
   if (ped.montoRecibido > 0) {
-    t += 'Cobrado : S/' + ped.montoRecibido.toFixed(2) + (ped.metodoPago ? ' ('+ped.metodoPago+')' : '') + LF;
+    t += 'Cobrado : S/' + ped.montoRecibido.toFixed(2);
+    if (ped.metodoPago) t += ' (' + limpiarTexto(ped.metodoPago.split('(')[0].trim()) + ')';
+    t += LF;
   }
   if (ped.saldo > 0) {
     t += BOLD_ON + 'Saldo   : S/' + ped.saldo.toFixed(2) + BOLD_OFF + LF;
@@ -4406,11 +4430,7 @@ function enviarAImpresora() {
   t += CENTER + 'Gracias por su preferencia' + LF + LF + LF + LF;
   t += CUT;
 
-  // Agregar márgenes al inicio y espaciado
-  const ticketConMargen = t;
-
-  // Enviar a RawBT via intent directo (texto plano)
-  const rawbtUrl = 'rawbt:base64,' + btoa(unescape(encodeURIComponent(t)));
+  const rawbtUrl = 'rawbt:base64,' + btoa(t);
   window.location.href = rawbtUrl;
   setTimeout(() => cerrarTicketPreview(), 800);
 }
