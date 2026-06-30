@@ -4409,24 +4409,9 @@ function enviarAImpresora() {
   // Agregar márgenes al inicio y espaciado
   const ticketConMargen = t;
 
-  // Intentar primero con rawbt: scheme (texto plano ESC/POS)
-  // Si RawBT está configurado como "Text/Font" funcionará correctamente
-  const bytes = [];
-  for (let i = 0; i < ticketConMargen.length; i++) {
-    bytes.push(ticketConMargen.charCodeAt(i) & 0xff);
-  }
-
-  // Usar URL scheme de RawBT con tipo de contenido explícito
-  const b64 = btoa(ticketConMargen);
-  const rawbtUrl = 'rawbt://base64/' + encodeURIComponent(b64);
-
-  // Intentar abrir RawBT
-  const link = document.createElement('a');
-  link.href = rawbtUrl;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-
+  // Enviar a RawBT via intent directo (texto plano)
+  const rawbtUrl = 'rawbt:base64,' + btoa(unescape(encodeURIComponent(t)));
+  window.location.href = rawbtUrl;
   setTimeout(() => cerrarTicketPreview(), 800);
 }
 
