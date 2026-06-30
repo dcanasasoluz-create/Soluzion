@@ -4365,19 +4365,23 @@ function limpiarTexto(str) {
 }
 
 function qrCode(data) {
-  // Comandos ESC/POS para imprimir QR
   const GS = String.fromCharCode(29);
-  const LF = '\n';
   const d = data.length;
   const pL = (d + 3) % 256;
   const pH = Math.floor((d + 3) / 256);
   let q = '';
-  q += GS + '(k' + String.fromCharCode(4) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(65) + String.fromCharCode(50) + String.fromCharCode(0); // model
-  q += GS + '(k' + String.fromCharCode(3) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(67) + String.fromCharCode(6); // size 6
-  q += GS + '(k' + String.fromCharCode(3) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(69) + String.fromCharCode(48); // error correction M
+  q += GS + '(k' + String.fromCharCode(4) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(65) + String.fromCharCode(50) + String.fromCharCode(0);
+  q += GS + '(k' + String.fromCharCode(3) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(67) + String.fromCharCode(4); // size 4 (antes era 6)
+  q += GS + '(k' + String.fromCharCode(3) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(69) + String.fromCharCode(48);
   q += GS + '(k' + String.fromCharCode(pL) + String.fromCharCode(pH) + String.fromCharCode(49) + String.fromCharCode(80) + String.fromCharCode(48) + data;
   q += GS + '(k' + String.fromCharCode(3) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(81) + String.fromCharCode(48);
   return q;
+}
+
+function getNumTicket() {
+  const n = parseInt(localStorage.getItem('soluzion_ticket_num')||'0') + 1;
+  localStorage.setItem('soluzion_ticket_num', String(n));
+  return String(n).padStart(6, '0');
 }
 
 function enviarAImpresora() {
@@ -4418,6 +4422,8 @@ function enviarAImpresora() {
   t += 'RUC: ' + EMPRESA.ruc + LF;
   t += SEP + LF;
   t += LEFT + BOLD_ON + 'NOTA DE PEDIDO' + BOLD_OFF + LF;
+  const numTicket = getNumTicket();
+  t += 'N°      : ' + numTicket + LF;
   t += 'Pedido  : ' + ped.id.toUpperCase() + LF;
   t += 'Cliente : ' + limpiarTexto(nombreCli) + LF;
   t += 'Fecha   : ' + fechaCorta + ' ' + horaCorta + LF;
@@ -4447,7 +4453,7 @@ function enviarAImpresora() {
     '|Estado:' + limpiarTexto(ped.estado);
   t += CENTER + qrCode(qrData) + LF;
 
-  t += CENTER + 'Gracias por su preferencia' + LF + LF + LF;
+  t += CENTER + 'Gracias por su preferencia' + LF + LF;
   t += CUT;
 
   const rawbtUrl = 'rawbt:base64,' + btoa(t);
