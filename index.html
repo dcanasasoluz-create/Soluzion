@@ -4364,6 +4364,22 @@ function limpiarTexto(str) {
     .replace(/[^\x00-\x7F]/g,'?');
 }
 
+function qrCode(data) {
+  // Comandos ESC/POS para imprimir QR
+  const GS = String.fromCharCode(29);
+  const LF = '\n';
+  const d = data.length;
+  const pL = (d + 3) % 256;
+  const pH = Math.floor((d + 3) / 256);
+  let q = '';
+  q += GS + '(k' + String.fromCharCode(4) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(65) + String.fromCharCode(50) + String.fromCharCode(0); // model
+  q += GS + '(k' + String.fromCharCode(3) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(67) + String.fromCharCode(6); // size 6
+  q += GS + '(k' + String.fromCharCode(3) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(69) + String.fromCharCode(48); // error correction M
+  q += GS + '(k' + String.fromCharCode(pL) + String.fromCharCode(pH) + String.fromCharCode(49) + String.fromCharCode(80) + String.fromCharCode(48) + data;
+  q += GS + '(k' + String.fromCharCode(3) + String.fromCharCode(0) + String.fromCharCode(49) + String.fromCharCode(81) + String.fromCharCode(48);
+  return q;
+}
+
 function enviarAImpresora() {
   if (!ticketDataActual) return;
   const { ped, dets, nombreCli, fechaCorta, horaCorta } = ticketDataActual;
@@ -4382,9 +4398,17 @@ function enviarAImpresora() {
   const CUT         = GS  + 'V' + String.fromCharCode(66) + String.fromCharCode(0);
   const SEP = '--------------------------------';
 
-  function pad(str, len) {
+  const COL_NUM = 2;
+  const COL_NOM = 21;
+  const COL_SUB = 7;
+
+  function padR(str, len) {
     const s = limpiarTexto(str);
     return s.length >= len ? s.substring(0,len) : s + ' '.repeat(len - s.length);
+  }
+  function padL(str, len) {
+    const s = limpiarTexto(str);
+    return s.length >= len ? s.substring(0,len) : ' '.repeat(len - s.length) + s;
   }
 
   let t = INIT + CENTER;
@@ -4394,40 +4418,36 @@ function enviarAImpresora() {
   t += 'RUC: ' + EMPRESA.ruc + LF;
   t += SEP + LF;
   t += LEFT + BOLD_ON + 'NOTA DE PEDIDO' + BOLD_OFF + LF;
+  t += 'Pedido  : ' + ped.id.toUpperCase() + LF;
   t += 'Cliente : ' + limpiarTexto(nombreCli) + LF;
   t += 'Fecha   : ' + fechaCorta + ' ' + horaCorta + LF;
   t += 'Viaje   : ' + (ped.viaje||'1') + '  Estado: ' + limpiarTexto(ped.estado) + LF;
   t += SEP + LF;
-  t += BOLD_ON + 'CANT PRODUCTO            SUBTOTAL' + LF + BOLD_OFF;
+  t += BOLD_ON + padR('#', COL_NUM) + ' ' + padR('PRODUCTO', COL_NOM) + padL('SUBTOT', COL_SUB) + LF + BOLD_OFF;
   t += SEP + LF;
 
   dets.forEach(d => {
     const prod = productos.find(p => p.id === d.prodId);
     const nom = limpiarTexto(prod ? prod.nombre : d.prodId);
-    const qtyStr = (d.qty % 1 === 0 ? String(parseInt(d.qty)) : d.qty.toFixed(1)) + 'x';
-    const subStr = BOLD_ON + 'S/' + d.subtotal.toFixed(2) + BOLD_OFF;
-    // Línea 1: QTY NOMBRE ... SUBTOTAL
-    const prefijo = pad(qtyStr, 4);
-    const maxNom = 20;
-    const nomTrunc = nom.length > maxNom ? nom.substring(0, maxNom) : pad(nom, maxNom);
-    t += prefijo + nomTrunc + ' ' + BOLD_ON + 'S/' + d.subtotal.toFixed(2) + BOLD_OFF + LF;
-    // Línea 2: precio unitario indentado
-    t += '    S/' + d.precio.toFixed(2) + ' c/u' + LF;
+    const numStr = String(d.qty % 1 === 0 ? parseInt(d.qty) : d.qty.toFixed(1));
+    const subStr = 'S/' + d.subtotal.toFixed(2);
+    t += padR(numStr, COL_NUM) + ' ' + padR(nom, COL_NOM) + padL(subStr, COL_SUB) + LF;
+    t += '   S/' + d.precio.toFixed(2) + ' c/u' + LF;
   });
 
   t += SEP + LF;
   t += CENTER + SIZE_MED + BOLD_ON + 'TOTAL: S/' + ped.total.toFixed(2) + BOLD_OFF + SIZE_NORMAL + LF;
-  t += LEFT;
-  if (ped.montoRecibido > 0) {
-    t += 'Cobrado : S/' + ped.montoRecibido.toFixed(2);
-    if (ped.metodoPago) t += ' (' + limpiarTexto(ped.metodoPago.split('(')[0].trim()) + ')';
-    t += LF;
-  }
-  if (ped.saldo > 0) {
-    t += BOLD_ON + 'Saldo   : S/' + ped.saldo.toFixed(2) + BOLD_OFF + LF;
-  }
   t += SEP + LF;
-  t += CENTER + 'Gracias por su preferencia' + LF + LF + LF + LF;
+
+  // QR con resumen del pedido
+  const qrData = 'SOLUZION|Pedido:' + ped.id.toUpperCase() +
+    '|Cliente:' + limpiarTexto(nombreCli) +
+    '|Fecha:' + fechaCorta +
+    '|Total:S/' + ped.total.toFixed(2) +
+    '|Estado:' + limpiarTexto(ped.estado);
+  t += CENTER + qrCode(qrData) + LF;
+
+  t += CENTER + 'Gracias por su preferencia' + LF + LF + LF;
   t += CUT;
 
   const rawbtUrl = 'rawbt:base64,' + btoa(t);
